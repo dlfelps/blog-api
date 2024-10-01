@@ -14,9 +14,7 @@ class Post(BaseModel):
     category = CharField(max_length=255)
     createdAt = DateTimeField()
     updatedAt = DateTimeField()
-    
  
-
 class Tag(BaseModel):
     id = IntegerField(primary_key=True)
     name = CharField(max_length=255)
@@ -44,7 +42,7 @@ def reverse(postT: Post) -> PostDantic:
                     tags=tag_list)
 
 
-def get_or_create(name: str) -> Tag:
+def get_or_create_tag(name: str) -> Tag:
     tag, _ = Tag.get_or_create(name=name)
     return tag
 
@@ -59,7 +57,7 @@ def create_record(post: PostDantic) -> PostDantic:
 
   # get or create tags
 
-  tags = list(map(get_or_create, post.tags))
+  tags = list(map(get_or_create_tag, post.tags))
 
   # add entries to joining table
   for t in tags:
@@ -74,8 +72,36 @@ def get_record(id: int) -> Post:
     postT = Post.get_by_id(id)
     return reverse(postT)
 
-def update_record(post: Post) -> Post:
-    pass
+def update_record(id: int, updated_post: PostDantic) -> PostDantic:
+    
+    # update all fields except tag
+    updated_dict = dict(updated_post)
+    just_updates = {}
+    for field in updated_post.model_fields_set:
+        if field == 'tags':
+            pass
+        else:
+          just_updates[field] = updated_dict[field]
+    
+    q = (Post.update(just_updates).where(Post.id == id))
+    q.execute()
+
+    if 'tags' in updated_post.model_fields_set:
+        # first delete all previous tags associated with post
+        postT = Post.get_by_id(id)
+        q = TagPosts.delete().where(TagPosts.post == postT)
+        q.execute()
+
+        # get or create tags
+
+        tags = list(map(get_or_create_tag, updated_post.tags))
+
+        # add entries to joining table
+        for t in tags:
+            TagPosts.create(post=id, tag=t.id)
+
+    postT = Post.get_by_id(id)
+    return reverse(postT)
 
 def delete_record(id: int) -> None:
     pass

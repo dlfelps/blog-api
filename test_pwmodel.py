@@ -44,7 +44,17 @@ def create_posts():
     TagPosts.create(post_id=post_three.id, tag_id=tag_one.id)
     TagPosts.create(post_id=post_three.id, tag_id=tag_two.id)
       
-     
+def update_posts():
+        
+    post_two = Post.get_by_id(2)
+    print(post_two.title)
+
+    q = (Post.update({Post.title: "Updated title", Post.content: "updates"}).where(Post.id == 2))
+    print(q)
+    q.execute()
+
+    post_two = Post.get_by_id(2)
+    print(post_two.title)
 
 def select_posts():
     
@@ -61,6 +71,7 @@ def close_db():
 def main():
     create_db_and_tables()
     create_posts()
+    update_posts()
     select_posts()
     close_db()
 

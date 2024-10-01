@@ -10,24 +10,30 @@ app = FastAPI()
 
 
 @app.post("/posts/", status_code=201)
-async def create_post(post: Post) -> Post:
+async def create_post(new_post: Post) -> Post:
 
   # add the created at time  
-  post.createdAt = datetime.now()
-  post.updatedAt = post.createdAt
+  new_post.createdAt = datetime.now()
+  new_post.updatedAt = new_post.createdAt
 
   # save to db
-  post = create_record(post)
-  return post
+  new_post = create_record(new_post)
+  return new_post
 
 
 @app.get("/posts/{id}", status_code=200)
-async def fetch_post_by(id: int) -> Post:
+async def get_post(id: int) -> Post:
   return get_record(id)
+
+@app.put("/posts/{id}", status_code=200)
+async def update_post(id: int, updated_post: Post) -> Post:
+  updated_post = update_record(id, updated_post)
+  return updated_post
+
 
 @app.get("/posts/", status_code=200)
 async def fetch_all_posts() -> list[Post]:
-  return [Post(title="Post #9", content="default content", tags=["default"]), Post(title="Post #10", content="default content", tags=["default"])]
+  pass
 
 @app.delete("/posts/{id}", status_code=204)
 async def delete_post_by(id: int) -> None:
