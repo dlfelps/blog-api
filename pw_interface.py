@@ -69,11 +69,9 @@ def create_record(post: PostDantic) -> PostDantic:
   return updated_post
 
 def get_record_by_id(id: int) -> PostDantic | None:
-    try:
-      postT = Post.get_by_id(id)
-    except:
-      postT = None
-    finally:
+
+      postT = Post.get_or_none(Post.id == id)
+
       if postT:
           return reverse(postT)
       else:
