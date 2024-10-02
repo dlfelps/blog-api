@@ -1,10 +1,10 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from datetime import datetime
 
 from models import Post
 
-from pw_interface import create_record, delete_record, update_record, get_record
+from pw_interface import create_record, delete_record, update_record, get_record_by_tag, get_record_by_id, get_all_records
 
 app = FastAPI()
 
@@ -23,7 +23,19 @@ async def create_post(new_post: Post) -> Post:
 
 @app.get("/posts/{id}", status_code=200)
 async def get_post(id: int) -> Post:
-  return get_record(id)
+  post = get_record_by_id(id)
+  if post:
+    return post
+  else:
+    raise HTTPException(status_code=404, detail="Post not found")
+
+
+@app.get("/posts/", status_code=200)
+async def get_post(tag: str | None = None) -> list[Post]:
+  if tag:
+    return get_record_by_tag(tag)
+  else:
+    return get_all_records()
 
 @app.put("/posts/{id}", status_code=200)
 async def update_post(id: int, updated_post: Post) -> Post:

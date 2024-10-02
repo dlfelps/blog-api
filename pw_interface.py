@@ -68,9 +68,26 @@ def create_record(post: PostDantic) -> PostDantic:
 
   return updated_post
 
-def get_record(id: int) -> Post:
-    postT = Post.get_by_id(id)
-    return reverse(postT)
+def get_record_by_id(id: int) -> PostDantic | None:
+    try:
+      postT = Post.get_by_id(id)
+    except:
+      postT = None
+    finally:
+      if postT:
+          return reverse(postT)
+      else:
+          return None
+
+def get_record_by_tag(tag: str | None) -> list[PostDantic]:
+
+    q = Post.select().join(TagPosts).join(Tag).where(Tag.name == tag)
+    result = [reverse(p) for p in q]
+    return result
+    
+def get_all_records() -> list[PostDantic]:
+    q = Post.select()
+    return [reverse(p) for p in q]
 
 def update_record(id: int, updated_post: PostDantic) -> PostDantic:
     
