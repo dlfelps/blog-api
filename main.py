@@ -43,10 +43,9 @@ async def update_post(id: int, updated_post: Post) -> Post:
   return updated_post
 
 
-@app.get("/posts/", status_code=200)
-async def fetch_all_posts() -> list[Post]:
-  pass
-
 @app.delete("/posts/{id}", status_code=204)
 async def delete_post_by(id: int) -> None:
-  pass
+  if delete_record(id): 
+    return None
+  else:
+    raise HTTPException(status_code=404, detail="Post not found")

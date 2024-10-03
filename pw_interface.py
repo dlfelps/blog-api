@@ -118,6 +118,13 @@ def update_record(id: int, updated_post: PostDantic) -> PostDantic:
     postT = Post.get_by_id(id)
     return reverse(postT)
 
-def delete_record(id: int) -> None:
-    pass
+def delete_record(id: int) -> bool :
+    # returns true if record found, False if no record
+    postT = Post.get_or_none(Post.id == id)
+    
+    if postT:
+        postT.delete_instance(recursive=True)
+        return True
+    else:
+        return False
 
