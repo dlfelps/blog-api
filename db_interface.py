@@ -1,95 +1,129 @@
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
-from datetime import datetime
-from models import Post
+from peewee import Model, SqliteDatabase, CharField, IntegerField, ForeignKeyField, DateTimeField
+from models import Post as PostDantic
 
-# Initialize db upon module load
-sqlite_file_name = "database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+db = SqliteDatabase(':memory:', pragmas = {'foreign_keys': 1})
+class BaseModel(Model):
+    class Meta:
+        database = db
 
-engine = create_engine("sqlite:///database.db")
-SQLModel.metadata.create_all(engine)
-
-class TagPostLink(SQLModel, table=True):
-    post_id: int | None = Field(default=None, foreign_key="post_table.id", primary_key=True)
-    tag_id: int | None = Field(default=None, foreign_key="tag_table.id", primary_key=True)
-
-
-class PostTable(SQLModel, table=True):
-    __tablename__ = "post_table"
-    id: int | None = Field(default=None, primary_key=True)
-    title: str 
-    content: str
-    category: str
-    createdAt: datetime | None = None
-    updatedAt: datetime | None = None
-
-    tags: list["TagTable"] = Relationship(back_populates="posts", link_model=TagPostLink)
-
-
-class TagTable(SQLModel, table=True):
-    __tablename__ = "tag_table"
-    id: int | None = Field(default=None, primary_key=True)
-    tag: str = Field(index=True)
+class Post(BaseModel):
+    id = IntegerField(primary_key=True)
+    title = CharField(max_length=255)
+    content = CharField(max_length=255)
+    category = CharField(max_length=255)
+    createdAt = DateTimeField()
+    updatedAt = DateTimeField()
+ 
+class Tag(BaseModel):
+    id = IntegerField(primary_key=True)
+    name = CharField(max_length=255)
     
-    posts: list[PostTable] = Relationship(back_populates="tags", link_model=TagPostLink)
+class TagPosts(BaseModel):
+    post = ForeignKeyField(Post, backref='tags')
+    tag = ForeignKeyField(Tag, backref='posts')
+
+## Initialize upon LOAD
+db.connect()
+db.create_tables([Post, Tag, TagPosts])
 
 
-def forward(post: Post) -> PostTable:
-  # converts Post to PostTable
-  # doesnt modify fields (except id on write)
-  return  PostTable(title=post.title, 
-                    content=post.content,
-                    category=post.category,
-                    createdAt=post.createdAt,
-                    updatedAt=post.updatedAt,
-                    tags=list(map(get_or_create_tag, post.tags)))
-  
-
-def reverse(postT: PostTable) -> Post:
+def reverse(postT: Post) -> PostDantic:
   # converts PostTable to Post
   # doesn't modify fields
-  return  Post(title=postT.title, 
-                  content=postT.content,
-                  category=postT.category,
-                  createdAt=postT.createdAt,
-                  updatedAt=postT.updatedAt,
-                  tags=list(map(lambda x: x.tag, postT.tags)))
+  tag_list = [t.tag.name for t in postT.tags]
+
+  return  PostDantic(id=postT.id,
+                    title=postT.title, 
+                    content=postT.content,
+                    category=postT.category,
+                    createdAt=postT.createdAt,
+                    updatedAt=postT.updatedAt,
+                    tags=tag_list)
 
 
-def get_or_create_tag(tag: str) -> TagTable:
-  with Session(engine) as session:
-    statement = select(TagTable).where(TagTable.tag == tag)
-    result = session.exec(statement)
-    tagT = result.one_or_none()
-
-    if tagT: #found
-       return tagT
-    else: #not found
-       return TagTable(tag=tag) # new instance
+def get_or_create_tag(name: str) -> Tag:
+    tag, _ = Tag.get_or_create(name=name)
+    return tag
 
 
+def create_record(post: PostDantic) -> PostDantic:
+  # convert to Post (and save to db)
+  postT = Post.create(title=post.title, 
+                content=post.content,
+                category=post.category,
+                createdAt=post.createdAt,
+                updatedAt=post.updatedAt)
 
-def create_record(post: Post) -> Post:
-  # convert to PostTable
-  postT = forward(post)
+  # get or create tags
 
-  # save to DB
-  with Session(engine) as session:
-    session.add(postT)
-    # session.commit()
-    session.refresh(postT)
+  tags = list(map(get_or_create_tag, post.tags))
 
-  # convert back to Post
+  # add entries to joining table
+  for t in tags:
+      TagPosts.create(post=postT.id, tag=t.id)
+
+  # convert back to Post (this adds the id, previously unassigned)
   updated_post = reverse(postT)
 
   return updated_post
 
-def get_record(id: int) -> Post:
-    pass
+def get_record_by_id(id: int) -> PostDantic | None:
 
-def update_record(post: Post) -> Post:
-    pass
+      postT = Post.get_or_none(Post.id == id)
 
-def delete_record(id: int) -> None:
-    pass
+      if postT:
+          return reverse(postT)
+      else:
+          return None
+
+def get_record_by_tag(tag: str | None) -> list[PostDantic]:
+
+    q = Post.select().join(TagPosts).join(Tag).where(Tag.name == tag)
+    result = [reverse(p) for p in q]
+    return result
+    
+def get_all_records() -> list[PostDantic]:
+    q = Post.select()
+    return [reverse(p) for p in q]
+
+def update_record(id: int, updated_post: PostDantic) -> PostDantic:
+    
+    # update all fields except tag
+    updated_dict = dict(updated_post)
+    just_updates = {}
+    for field in updated_post.model_fields_set:
+        if field == 'tags':
+            pass
+        else:
+          just_updates[field] = updated_dict[field]
+    
+    q = (Post.update(just_updates).where(Post.id == id))
+    q.execute()
+
+    if 'tags' in updated_post.model_fields_set:
+        # first delete all previous tags associated with post
+        postT = Post.get_by_id(id)
+        q = TagPosts.delete().where(TagPosts.post == postT)
+        q.execute()
+
+        # get or create tags
+
+        tags = list(map(get_or_create_tag, updated_post.tags))
+
+        # add entries to joining table
+        for t in tags:
+            TagPosts.create(post=id, tag=t.id)
+
+    postT = Post.get_by_id(id)
+    return reverse(postT)
+
+def delete_record(id: int) -> bool :
+    # returns true if record found, False if no record
+    postT = Post.get_or_none(Post.id == id)
+    
+    if postT:
+        postT.delete_instance(recursive=True)
+        return True
+    else:
+        return False
 

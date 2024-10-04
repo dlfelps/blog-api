@@ -1,10 +1,9 @@
 
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
-
 from models import Post
 
-from pw_interface import create_record, delete_record, update_record, get_record_by_tag, get_record_by_id, get_all_records
+from db_interface import create_record, delete_record, update_record, get_record_by_tag, get_record_by_id, get_all_records
 
 app = FastAPI()
 
