@@ -11,8 +11,6 @@ The goals of this project are to:
 - Demonstrate RESTful APIs and their best practices and conventions
 - Demonstrate CRUD operations using an Object Relational Model (ORM)
 
-
-
 ## Blog capabilities
 The RESTful API allows users to perform the following operations:
 - Create a new blog post
@@ -164,3 +162,5 @@ Delete an existing blog post using the DELETE method
 DELETE /posts/1
 ```
 The endpoint should return a `204 No Content` status code if the blog post was successfully deleted or a `404 Not Found` status code if the blog post was not found.
+
+This project idea was provided by [Roadmap](https://roadmap.sh/projects/blogging-platform-api).
